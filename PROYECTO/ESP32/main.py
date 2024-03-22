@@ -54,7 +54,7 @@ except OSError as amerror:
     print("Failed reception")
 
 count = 0
-while count <= 10:
+while count <= 100:
     client.check_msg()
     # SI HAY DATOS DISPONIBLES
     if s.data_ready():

@@ -7,7 +7,7 @@
 #include "debug.h"
 #include <WebServer.h>
 
-#define HTTP_MQTT 0 // 0 - HTTP, 1 - MQTT
+#define HTTP_MQTT 1 // 0 - HTTP, 1 - MQTT
 
 
 // WIFI
@@ -20,8 +20,8 @@ const char* ntpServer = "pool.ntp.org";
 // MQTT Broker
 const char *mqtt_broker = "192.168.1.23";
 const char *topic = "events";
-const char *mqtt_username = "user2";
-const char *mqtt_password = "password";
+const char *mqtt_username = "esp32";
+const char *mqtt_password = "testuma";
 const int mqtt_port = 1883;
 String client_id;
 

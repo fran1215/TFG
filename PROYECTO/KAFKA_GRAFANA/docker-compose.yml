@@ -1,31 +1,37 @@
-version: '3.8'
+version: '2'
+
 services:
   zookeeper:
-    image: bitnami/zookeeper
+    image: confluentinc/cp-zookeeper:7.4.4
     environment:
-      - ALLOW_ANONYMOUS_LOGIN=yes
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - 2181:2181
-
+      - 22181:2181
+  
   kafka:
-    image: bitnami/kafka
-    environment:
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_HEAP_OPTS=-Xmx512M -Xms512M
+    image: confluentinc/cp-kafka:7.4.4
+    depends_on:
+      - zookeeper
     ports:
-      - 9092:9092
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    
+  kafka-mqtt-bridge:
+    image: kafka-mqtt-bridge:latest
+    links:
+        - "kafka:kafkabroker"
+    depends_on:
+        - kafka
+      
 
-mqtt_kafka_bridge:
-  image: mosquitto-kafka-bridge
-  environment:
-    - MQTT_BROKER_HOST=your_raspberry_pi_mqtt_broker_ip
-    - MQTT_BROKER_PORT=1883
-    - MQTT_TOPIC=events
-    - KAFKA_BROKER=kafka:9092
-    - KAFKA_TOPIC=events
-  depends_on:
-    - kafka
+    
 
 #   kafka:
 #     image: bitnami/kafka:latest

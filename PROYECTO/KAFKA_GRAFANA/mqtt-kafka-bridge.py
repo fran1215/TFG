@@ -2,17 +2,24 @@ import paho.mqtt.client as mqtt
 from pykafka import KafkaClient
 import time
 
+print("Starting MQTT-Kafka bridge")
+print("Connecting to MQTT broker")
 mqtt_broker = "192.168.1.23"
 mqtt_client = mqtt.Client(protocol=mqtt.MQTTv5)
 
-kafka_client = KafkaClient(hosts="kafkabroker:29092")
+print("Connecting to Kafka broker")
+kafka_client = KafkaClient(hosts="kafka:9092")
 print(kafka_client.brokers)
 print(kafka_client.topics)
+print("Connected to Kafka broker")
+
+print("Creating Kafka topic")
 kafka_topic = kafka_client.topics['events']
 kafka_producer = kafka_topic.get_sync_producer()
 
 def on_connect(client, userdata, flags, reason_code, properties):
-        print(f"Connected with result code {reason_code}")
+        print("Connected to MQTT broker")
+        # print(f"Connected with result code {reason_code}")
 
 def on_message(client, userdata, message):
         msg_payload = str(message.payload)

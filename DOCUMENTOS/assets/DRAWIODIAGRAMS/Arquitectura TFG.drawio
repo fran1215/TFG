@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" modified="2024-05-13T14:37:25.048Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0" etag="eqSrlBecfLKD5ouJqciI" version="24.4.0" type="github">
+<mxfile host="app.diagrams.net" modified="2024-05-13T14:39:44.275Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0" etag="rV7Y8MqWWPryoMIcg8DA" version="24.4.0" type="github">
   <diagram name="Página-1" id="OzsvUO306dvhfWqvLFLR">
-    <mxGraphModel dx="1685" dy="934" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1432" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -26,9 +26,6 @@
         <mxCell id="yZG5t02k9w97Ie236nPo-3" value="ESP32" style="swimlane;fillColor=#dae8fc;strokeColor=#6c8ebf;labelBorderColor=none;fontFamily=Helvetica;textDirection=ltr;" parent="1" vertex="1">
           <mxGeometry x="480" y="300" width="265" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="Xo4wMdBt3k0BzzaMsNuW-2" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="shape=image;html=1;verticalAlign=bottom;verticalLabelPosition=top;labelBackgroundColor=#ffffff;imageAspect=0;aspect=fixed;image=https://cdn1.iconfinder.com/data/icons/fruit-136/64/Fruit_iconfree_Filled_Outline_raspberry-healthy-organic-food-fruit_icon-128.png;labelPosition=center;align=center;" parent="yZG5t02k9w97Ie236nPo-3" vertex="1">
-          <mxGeometry x="36" y="3" width="18" height="18" as="geometry" />
-        </mxCell>
         <mxCell id="yZG5t02k9w97Ie236nPo-6" value="Servicio ESP32" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" parent="yZG5t02k9w97Ie236nPo-3" vertex="1">
           <mxGeometry x="86" y="67.15" width="104" height="45.69" as="geometry" />
         </mxCell>
@@ -48,7 +45,7 @@
           <mxGeometry x="50" y="260" width="240" height="230" as="geometry" />
         </mxCell>
         <mxCell id="usM3UiBTiETN5NdQZIOS-4" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="shape=image;html=1;verticalAlign=bottom;verticalLabelPosition=top;labelBackgroundColor=#ffffff;imageAspect=0;aspect=fixed;image=https://cdn1.iconfinder.com/data/icons/fruit-136/64/Fruit_iconfree_Filled_Outline_raspberry-healthy-organic-food-fruit_icon-128.png;labelPosition=center;align=center;" parent="usM3UiBTiETN5NdQZIOS-3" vertex="1">
-          <mxGeometry x="60" y="3" width="18" height="18" as="geometry" />
+          <mxGeometry x="48" y="3" width="18" height="18" as="geometry" />
         </mxCell>
         <mxCell id="yZG5t02k9w97Ie236nPo-2" value="Broker" style="swimlane;dashed=1;" parent="usM3UiBTiETN5NdQZIOS-3" vertex="1">
           <mxGeometry x="51.5" y="44" width="160" height="150" as="geometry" />

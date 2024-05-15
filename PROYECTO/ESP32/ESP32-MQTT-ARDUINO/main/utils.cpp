@@ -32,10 +32,21 @@ String genPayload(String client, String method, JSONVar params) {
 String createInfoPayload(String client, double temp, double humidity, int co2, int tvoc) {
     JSONVar params;
     
-    params["temperature"] = temp;
-    params["humidity"] = humidity;
-    params["co2"] = co2;
-    params["tvoc"] = tvoc;
+    if(temp != -500.0){
+      params["temperature"] = temp;
+    }
+
+    if(humidity != -500.0){
+      params["humidity"] = humidity;
+    }
+    
+    if(co2 != -500){
+      params["co2"] = co2;
+    }
+
+    if(tvoc != -500){
+      params["tvoc"] = tvoc;
+    }
 
     String payload = genPayload(client, "info", params);
     return payload;
@@ -51,8 +62,8 @@ String receivedCommand(String msg, String client, double temperature, double hum
     debugln(msg);
     try {
         JSONVar obj = JSON.parse(msg);
-        if ((String) obj["method"] == "cmd") {
-            if ((String) obj["params"][0] == "get") {
+        if (JSON.stringify(obj["method"]) == "cmd") {
+            if (JSON.stringify(obj["params"][0]) == "get") {
                 String param = obj["params"][1];
                 JSONVar respParams;
                 if (param == "temperature") {

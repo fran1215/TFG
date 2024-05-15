@@ -7,7 +7,7 @@
 #include "debug.h"
 #include <WebServer.h>
 
-#define HTTP_MQTT 1 // 0 - HTTP, 1 - MQTT
+#define HTTP_MQTT 0 // 0 - HTTP, 1 - MQTT
 
 
 // WIFI
@@ -82,9 +82,43 @@ void handleRoot(){
   server.send(200, "application/json", msgchar);
 }
 
+// HTTP - HANDLE ROOT
+void handleField(){
+  debugln("CONNECTION ON HTTP SERVER - POST FIELD");
+
+  String msgField = createInfoPayload(client_id, temp, humidity, co2, tvoc);
+  const char* msgchar = msg.c_str();
+  String message = "";
+
+  // Extract GET parameters from the request URL
+  if (server.args() > 0) {
+    message += "\nGET parameters: ";
+    for (int i = 0; i < server.args(); i++) {
+      if (i > 0) {
+        message += ", ";
+      }
+      message += server.argName(i) + " = " + server.arg(i);
+    }
+  }
+
+  debugln(message);
+  server.send(200, "application/json", msgchar);
+}
+
+// HTTP - HANDLE ROOT
+void handleRestart(){
+  debugln("CONNECTION ON HTTP SERVER - RESTART");
+
+  const char* msgchar = msg.c_str();
+  server.send(200, "application/json", msgchar);
+}
+
 // HTTP - START SERVER
 void startServer(){
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/field", HTTP_GET, handleField);
+  server.on("/restart", HTTP_GET, handleRestart);
+
   debugln("STARTING SERVER");
 
   server.begin();

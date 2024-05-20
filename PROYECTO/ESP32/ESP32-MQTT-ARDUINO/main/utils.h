@@ -9,6 +9,8 @@ String createInfoPayload(String client, double temp, double humidity, int co2, i
 
 String createResponsePayload(String client, JSONVar params);
 
-String receivedCommand(String msg, String client, double temperature, double humidity, int co2, int tvoc);
+JSONVar receivedCmd(String msg, double temperature, double humidity, int co2, int tvoc);
+
+JSONVar removeField(JSONVar obj, const char *field);
 
 #endif

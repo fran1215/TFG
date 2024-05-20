@@ -1,25 +1,25 @@
+#include "utils.h"
+#include "debug.h"
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <Wire.h>
 #include <AM2302-Sensor.h>
 #include <SparkFunCCS811.h>
-#include "utils.h"
-#include "debug.h"
 #include <WebServer.h>
 
 #define HTTP_MQTT 0 // 0 - HTTP, 1 - MQTT
 
-
 // WIFI
-const char* ssid        = "Livebox6-E5A7";
-const char* password    = "54TNarY4sCbdEvafran2003";
+const char *ssid = "Livebox6-E5A7";
+const char *password = "54TNarY4sCbdEvafran2003";
 
 // NTP server to request epoch time
-const char* ntpServer = "pool.ntp.org";
+const char *ntpServer = "pool.ntp.org";
 
 // MQTT Broker
 const char *mqtt_broker = "192.168.1.23";
 const char *topic = "events";
+const char *topicCmd = "";
 const char *mqtt_username = "esp32";
 const char *mqtt_password = "testuma";
 const int mqtt_port = 1883;
@@ -39,190 +39,295 @@ unsigned long lastMsg = 0;
 String msg;
 int value = 0;
 
-constexpr unsigned int SENSOR_PIN {13U};
+constexpr unsigned int SENSOR_PIN{13U};
 AM2302::AM2302_Sensor am2302{SENSOR_PIN};
 
-
-#define CCS811_ADDR 0x5B //Default I2C Address
+#define CCS811_ADDR 0x5B // Default I2C Address
 CCS811 ccs811(CCS811_ADDR);
 
-// MQTT - CALLBACK
-void callback(char* topic, byte* payload, unsigned int length) {
-  debug("Message arrived [");
-  debug(topic);
-  debug("] ");
-  for (int i=0;i<length;i++) {
-    debug((char)payload[i]);
-  }
-  debugln();
-}
+void(* resetFunc) (void) = 0; // Reset function @ address 0
 
-// MQTT - RECONNECT
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    debugln("Intentando la conexión MQTT...");
-    // Attempt to connect
-    if (client.connect(client_id.c_str(), mqtt_username, mqtt_password)) {
-          debugln("Conexion con el broker MQTT establecida.");
-      } else {
-          debug("Error con codigo: ");
-          debugln(client.state());
-          debugln("Reintentando en 2 segundos...");
-          delay(2000);
-      }
-  }
-}
+void receiveResponse(String resp)
+{
+        debug("DEBUG --- Receive Response - Received message: ");
+        debugln(resp);
 
-// HTTP - HANDLE ROOT
-void handleRoot(){
-  debugln("CONNECTION ON HTTP SERVER - ROOT");
+        JSONVar cmdResp = receivedCmd(resp, temp, humidity, co2, tvoc);
+        String dst = cmdResp["dst"];
+        JSONVar sendResp;
 
-  const char* msgchar = msg.c_str();
-  server.send(200, "application/json", msgchar);
-}
+        String topicRespStr = client_id + "/" + dst;
+        const char *topicResp = topicRespStr.c_str();
+        String payload;
+        bool restart = false;
+        
+        if (cmdResp.hasOwnProperty("restart"))
+        {
+                debugln("DEBUG --- Restart message parsed correctly. Sending response and restarting.");
+                removeField(cmdResp, "restart");
+                restart = true;
 
-// HTTP - HANDLE ROOT
-void handleField(){
-  debugln("CONNECTION ON HTTP SERVER - POST FIELD");
+                JSONVar empty;
+                payload = createResponsePayload(client_id, empty).c_str();
+        }
+        else
+        {
+                debugln("DEBUG --- Get message parsed correctly. Sending response.");
+                cmdResp = removeField(cmdResp, "dst");
 
-  String msgField = createInfoPayload(client_id, temp, humidity, co2, tvoc);
-  const char* msgchar = msg.c_str();
-  String message = "";
+                debug("DEBUG --- Response topic: ");
+                debugln(topicRespStr);
 
-  // Extract GET parameters from the request URL
-  if (server.args() > 0) {
-    message += "\nGET parameters: ";
-    for (int i = 0; i < server.args(); i++) {
-      if (i > 0) {
-        message += ", ";
-      }
-      message += server.argName(i) + " = " + server.arg(i);
-    }
-  }
+                payload = createResponsePayload(client_id, cmdResp).c_str();
+        }
 
-  debugln(message);
-  server.send(200, "application/json", msgchar);
+        if(HTTP_MQTT)
+        {
+                client.publish(topicResp, payload.c_str());
+        }
+        else
+        {
+                server.send(200, "application/json", payload.c_str());
+        }
+
+        if(restart)
+        {
+                delay(1000);
+                resetFunc();
+        }
 }
 
 // HTTP - HANDLE ROOT
-void handleRestart(){
-  debugln("CONNECTION ON HTTP SERVER - RESTART");
+void handleRoot()
+{
+        debugln("CONNECTION ON HTTP SERVER - ROOT");
 
-  const char* msgchar = msg.c_str();
-  server.send(200, "application/json", msgchar);
+        const char *msgchar = msg.c_str();
+        server.send(200, "application/json", msgchar);
+}
+
+// HTTP - HANDLE FIELD
+void handleField()
+{
+        debugln("CONNECTION ON HTTP SERVER - POST FIELD");
+
+        const char *msgchar = msg.c_str();
+        String message = "";
+        JSONVar obj, params, getParams;
+
+        obj["src"] = "test";
+        obj["method"] = "cmd";
+
+
+        // Extract GET parameters from the request URL
+        if (server.args() > 0)
+        {
+                message += "\nGET parameters: ";
+                for (int i = 0; i < server.args(); i++)
+                {
+                        if (i > 0)
+                        {
+                                message += ", ";
+                        }
+                        message += server.argName(i) + " = " + server.arg(i);
+
+                        if(server.arg(i)){
+                                getParams[i] = server.argName(i);
+                        }
+                }
+        }
+        params["get"] = getParams;
+        obj["params"] = params;
+
+        debugln(message);
+
+        receiveResponse(JSON.stringify(obj));
+}
+
+// HTTP - HANDLE ROOT
+void handleRestart()
+{
+        debugln("CONNECTION ON HTTP SERVER - RESTART");
+
+        JSONVar obj, params;
+        params["restart"] = 1;
+        obj["src"] = "test";
+        obj["method"] = "cmd";
+        obj["params"] = params;
+
+        receiveResponse(JSON.stringify(obj));
 }
 
 // HTTP - START SERVER
-void startServer(){
-  server.on("/", HTTP_GET, handleRoot);
-  server.on("/field", HTTP_GET, handleField);
-  server.on("/restart", HTTP_GET, handleRestart);
+void startServer()
+{
+        server.on("/", HTTP_GET, handleRoot);
+        server.on("/field", HTTP_GET, handleField);
+        server.on("/restart", HTTP_GET, handleRestart);
 
-  debugln("STARTING SERVER");
+        debugln("STARTING SERVER");
 
-  server.begin();
+        server.begin();
 
-  debugln("SERVER STARTED");
+        debugln("SERVER STARTED");
+}
+
+// MQTT - CALLBACK
+void callback(char *topic, byte *payload, unsigned int length)
+{
+        debug("Message arrived [");
+        debug(topic);
+        debugln("] ");
+        String resp = "";
+
+        for (int i = 0; i < length; i++)
+        {
+                resp += (char)payload[i];
+        }
+
+        receiveResponse(resp); 
+}
+
+// MQTT - RECONNECT
+void reconnect()
+{
+        // Loop until we're reconnected
+        while (!client.connected())
+        {
+                debugln("Intentando la conexión MQTT...");
+                // Attempt to connect
+                if (client.connect(client_id.c_str(), mqtt_username, mqtt_password))
+                {
+                        debugln("Conexion con el broker MQTT establecida.");
+                        debug("MQTT --- SUBSCRIBED TO ");
+                        debugln(topicCmd);
+                        client.subscribe(topicCmd);
+                }
+                else
+                {
+                        debug("Error con codigo: ");
+                        debugln(client.state());
+                        debugln("Reintentando en 2 segundos...");
+                        delay(2000);
+                }
+        }
 }
 
 // SETUP - DEBUG
-void debugSensors(double temp, double humidity, int co2, int tvoc){
-  debugln("---- AM2320 sensor ----");
-  debug("Temperature: ");
-  debug(temp);
-  debugln("C");
-  debug("Humidity: ");
-  debug(humidity);
-  debugln("%");
-  debugln("---- CCS811 sensor ----");
-  debug("CO2: ");
-  debugln(co2);
-  debug("TVOC: ");
-  debugln(tvoc);
+void debugSensors()
+{
+        debugln("---- AM2320 sensor ----");
+        debug("Temperature: ");
+        debug(temp);
+        debugln("C");
+        debug("Humidity: ");
+        debug(humidity);
+        debugln("%");
+        debugln("---- CCS811 sensor ----");
+        debug("CO2: ");
+        debugln(co2);
+        debug("TVOC: ");
+        debugln(tvoc);
 }
 
 // SETUP - WIFI
-void setupWifi(){
-  // Connecting to a Wi-Fi network
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      debugln("Conectando a WiFi..");
-  }
-  debug("Conexión WiFi establecida.");
-  debug("Dirección IP: ");
-  debugln(WiFi.localIP());
-  client_id = String(WiFi.macAddress());
+void setupWifi()
+{
+        // Connecting to a Wi-Fi network
+        WiFi.begin(ssid, password);
+        while (WiFi.status() != WL_CONNECTED)
+        {
+                delay(500);
+                debugln("Conectando a WiFi..");
+        }
+        debug("Conexión WiFi establecida.");
+        debug("Dirección IP: ");
+        debugln(WiFi.localIP());
+        client_id = String(WiFi.macAddress());
 }
 
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
+void setup()
+{
+        // put your setup code here, to run once:
+        Serial.begin(115200);
 
-  Wire.begin();
+        Wire.begin();
 
-  setupWifi();
-  configTime(0,0,ntpServer);
+        setupWifi();
+        configTime(0, 0, ntpServer);
 
-  if(HTTP_MQTT){
-    // Connecting to the MQTT Server
-    client.setServer(mqtt_broker, mqtt_port);
-    client.setCallback(callback);
-  } else {
-    startServer();
-  }
+        topicCmd = client_id.c_str();
 
-  am2302.begin();
+        if (HTTP_MQTT)
+        {
+                // Connecting to the MQTT Server
+                client.setServer(mqtt_broker, mqtt_port);
+                client.setCallback(callback);
+        }
+        else
+        {
+                startServer();
+        }
 
-  auto status = am2302.read();
-  debug("\n\nEstado del sensor AM2302: ");
-  debugln(status);
+        am2302.begin();
 
-  if(!ccs811.begin()){
-    debugln("Error al cargar el sensor CCS811. Comprueba las conexiones.");
-  }
+        auto status = am2302.read();
+        debug("\n\nEstado del sensor AM2302: ");
+        debugln(status);
 
-  // Esperar a que el sensor esté listo
-  while(!ccs811.dataAvailable());
+        if (!ccs811.begin())
+        {
+                debugln("Error al cargar el sensor CCS811. Comprueba las conexiones.");
+        }
+
+        // Esperar a que el sensor esté listo
+        while (!ccs811.dataAvailable())
+                ;
 }
 
-void loop() {
-  if(HTTP_MQTT){
-    if(!client.connected()){
-      reconnect();
-    }
-    client.loop();
-  } else {
-    server.handleClient();
-  }
+void loop()
+{
+        if (HTTP_MQTT)
+        {
+                if (!client.connected())
+                {
+                        reconnect();
+                }
+                client.loop();
+        }
+        else
+        {
+                server.handleClient();
+        }
 
-  unsigned long now = millis();
-  if (now - lastMsg > 3000) {
-    lastMsg = now;
+        unsigned long now = millis();
+        if (now - lastMsg > 3000)
+        {
+                lastMsg = now;
 
-    if(ccs811.dataAvailable()){
+                if (ccs811.dataAvailable())
+                {
 
-      // Read from sensor CCS811
-      ccs811.readAlgorithmResults();
+                        // Read from sensor CCS811
+                        ccs811.readAlgorithmResults();
 
-      // Read from sensor AM2302
-      temp = roundf(am2302.get_Temperature() * 100) / 100;
-      humidity = roundf(am2302.get_Humidity() * 100) / 100;
-      co2 = ccs811.getCO2();
-      tvoc = ccs811.getTVOC();
+                        // Read from sensor AM2302
+                        temp = roundf(am2302.get_Temperature() * 100) / 100;
+                        humidity = roundf(am2302.get_Humidity() * 100) / 100;
+                        co2 = ccs811.getCO2();
+                        tvoc = ccs811.getTVOC();
 
-      debugSensors(temp, humidity, co2, tvoc);
+                        // debugSensors();
 
-      msg = createInfoPayload(client_id, temp, humidity, co2, tvoc);
-      const char* msgchar = msg.c_str();
-      
-      if(HTTP_MQTT){
-        debug("MQTT - Publish message: ");
-        debugln(msgchar);
-        client.publish(topic, msgchar);
-      } 
-      
-    }   
-  }
+                        msg = createInfoPayload(client_id, temp, humidity, co2, tvoc);
+                        const char *msgchar = msg.c_str();
+
+                        if (HTTP_MQTT)
+                        {
+                                debug("MQTT - Publish message: ");
+                                debugln(msgchar);
+                                client.publish(topic, msgchar);
+                        }
+                }
+        }
 }

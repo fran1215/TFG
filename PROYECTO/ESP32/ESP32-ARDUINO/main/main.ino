@@ -7,7 +7,7 @@
 #include <SparkFunCCS811.h>
 #include <WebServer.h>
 
-#define HTTP_MQTT 0 // 0 - HTTP, 1 - MQTT
+#define HTTP_MQTT 1 // 0 - HTTP, 1 - MQTT
 
 // WIFI
 const char *ssid = "Livebox6-E5A7";
@@ -314,7 +314,7 @@ void loop()
 
         // Si han pasado más de 3 segundos desde el último mensaje
         unsigned long now = millis();
-        if (now - lastMsg > 3000)
+        if (now - lastMsg > 10000)
         {
                 lastMsg = now;
 

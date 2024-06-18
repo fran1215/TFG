@@ -9,14 +9,14 @@
 
 #define HTTP_MQTT 1 // 0 - HTTP, 1 - MQTT
 
-// WIFI
-const char *ssid = "Livebox6-E5A7";
-const char *password = "54TNarY4sCbdEvafran2003";
+// Configuración WIFI
+const char *ssid = "SSID";
+const char *password = "CLAVE";
 
-// NTP server to request epoch time
+// NTP server para obtener el tiempo epoch
 const char *ntpServer = "pool.ntp.org";
 
-// MQTT Broker
+// Configuración Broker MQTT y tópicos
 const char *mqtt_broker = "192.168.1.23";
 const char *topic = "events";
 const char *topicCmd = "";
@@ -28,39 +28,47 @@ String client_id;
 // HTTP Server
 WebServer server(80);
 
+// Variables con la información de los sensores
 double temp;
 double humidity;
 int co2;
 int tvoc;
 
+// Configuración cliente PubSub
 WiFiClient espClient;
 PubSubClient client(espClient);
-unsigned long lastMsg = 0;
-String msg;
-int value = 0;
 
-constexpr unsigned int SENSOR_PIN{13U};
+// Variable para controlar el tiempo de envío de mensajes
+unsigned long lastMsg = 0;
+
+// Variable para almacenar el mensaje a enviar constantemente
+String msg;
+
+// Configuración física de los sensores (PINES)
+constexpr unsigned int SENSOR_PIN{13U}; // Pin del sensor AM2302 - 13
 AM2302::AM2302_Sensor am2302{SENSOR_PIN};
 
-#define CCS811_ADDR 0x5B // Default I2C Address
+#define CCS811_ADDR 0x5B // Dirección I2C del sensor CCS811 - 0x5B
 CCS811 ccs811(CCS811_ADDR);
 
-void(* resetFunc) (void) = 0; // Reset function @ address 0
+// Función de reset para reiniciar el dispositivo
+void(* resetFunc) (void) = 0;
 
+// Función para recibir mensajes y enviar las respuestas generadas
 void receiveResponse(String resp)
 {
         debug("DEBUG --- Receive Response - Received message: ");
         debugln(resp);
 
+        // Parsear el mensaje recibido
         JSONVar cmdResp = receivedCmd(resp, temp, humidity, co2, tvoc);
         String dst = cmdResp["dst"];
         JSONVar sendResp;
 
-        String topicRespStr = client_id + "/" + dst;
-        const char *topicResp = topicRespStr.c_str();
         String payload;
         bool restart = false;
         
+        // Comprobar si el mensaje recibido es un comando de reinicio
         if (cmdResp.hasOwnProperty("restart"))
         {
                 debugln("DEBUG --- Restart message parsed correctly. Sending response and restarting.");
@@ -70,19 +78,25 @@ void receiveResponse(String resp)
                 JSONVar empty;
                 payload = createResponsePayload(client_id, empty).c_str();
         }
+        // Si no es un comando de reinicio, es un comando get
         else
         {
                 debugln("DEBUG --- Get message parsed correctly. Sending response.");
                 cmdResp = removeField(cmdResp, "dst");
 
-                debug("DEBUG --- Response topic: ");
-                debugln(topicRespStr);
-
                 payload = createResponsePayload(client_id, cmdResp).c_str();
         }
 
+        // Enviar la respuesta por el canal configurado (HTTP o MQTT)
         if(HTTP_MQTT)
         {
+                // Crear el tópico de respuesta
+                String topicRespStr = client_id + "/" + dst;
+                const char *topicResp = topicRespStr.c_str();
+
+                debug("DEBUG --- Response topic: ");
+                debugln(topicRespStr);
+
                 client.publish(topicResp, payload.c_str());
         }
         else
@@ -90,6 +104,8 @@ void receiveResponse(String resp)
                 server.send(200, "application/json", payload.c_str());
         }
 
+        // Si se ha recibido un comando de reinicio, 
+        // reiniciar el dispositivo tras enviar la respuesta
         if(restart)
         {
                 delay(1000);
@@ -97,16 +113,17 @@ void receiveResponse(String resp)
         }
 }
 
-// HTTP - HANDLE ROOT
+// HTTP - Manejador de la ruta raíz ("GET /")
 void handleRoot()
 {
         debugln("CONNECTION ON HTTP SERVER - ROOT");
 
+        // Se envía el mensaje almacenado en el momento de la última lectura
         const char *msgchar = msg.c_str();
         server.send(200, "application/json", msgchar);
 }
 
-// HTTP - HANDLE FIELD
+// HTTP - Manejador de la ruta "/field" ("GET /field")
 void handleField()
 {
         debugln("CONNECTION ON HTTP SERVER - POST FIELD");
@@ -119,60 +136,72 @@ void handleField()
         obj["method"] = "cmd";
 
 
-        // Extract GET parameters from the request URL
+        // Si se han recibido parámetros GET
         if (server.args() > 0)
         {
                 message += "\nGET parameters: ";
+
+                // Recorrer los parámetros GET recibidos
                 for (int i = 0; i < server.args(); i++)
                 {
+                        // Debug de los parámetros GET
                         if (i > 0)
                         {
                                 message += ", ";
                         }
                         message += server.argName(i) + " = " + server.arg(i);
 
+                        // Almacenar cada parámetro GET en un objeto JSON auxiliar
                         if(server.arg(i)){
                                 getParams[i] = server.argName(i);
                         }
                 }
         }
+
+        // Almacenar los parámetros GET en el objeto JSON con la estructura definida
         params["get"] = getParams;
         obj["params"] = params;
 
         debugln(message);
 
+        // Enviar la respuesta con los parámetros GET recibidos
         receiveResponse(JSON.stringify(obj));
 }
 
-// HTTP - HANDLE ROOT
+// HTTP - Manejador de la ruta "/restart" ("GET /restart")
 void handleRestart()
 {
         debugln("CONNECTION ON HTTP SERVER - RESTART");
-
+        
         JSONVar obj, params;
+
+        // Se crea un mensaje LWT de reinicio y se almacena en el objeto JSON a enviar
         params["restart"] = 1;
         obj["src"] = "test";
         obj["method"] = "cmd";
         obj["params"] = params;
 
+        // Se envía el mensaje LWT de reinicio
         receiveResponse(JSON.stringify(obj));
 }
 
-// HTTP - START SERVER
+// HTTP - Inicio del servidor HTTP
 void startServer()
 {
+        // Configuración de los manejadores de las rutas
         server.on("/", HTTP_GET, handleRoot);
         server.on("/field", HTTP_GET, handleField);
         server.on("/restart", HTTP_GET, handleRestart);
 
         debugln("STARTING SERVER");
 
+        // Inicio del servidor HTTP
         server.begin();
 
         debugln("SERVER STARTED");
 }
 
-// MQTT - CALLBACK
+// MQTT - Callback para recibir mensajes
 void callback(char *topic, byte *payload, unsigned int length)
 {
         debug("Message arrived [");
@@ -188,14 +217,14 @@ void callback(char *topic, byte *payload, unsigned int length)
         receiveResponse(resp); 
 }
 
-// MQTT - RECONNECT
+// MQTT - Función para reconectar con el broker MQTT
 void reconnect()
 {
-        // Loop until we're reconnected
+        // Loop hasta que se establezca la conexión
         while (!client.connected())
         {
                 debugln("Intentando la conexión MQTT...");
-                // Attempt to connect
+                // Intentar conectar
                 if (client.connect(client_id.c_str(), mqtt_username, mqtt_password))
                 {
                         debugln("Conexion con el broker MQTT establecida.");
@@ -213,7 +242,7 @@ void reconnect()
         }
 }
 
-// SETUP - DEBUG
+// SETUP - Debug con todos los datos actuales de los sensores
 void debugSensors()
 {
         debugln("---- AM2320 sensor ----");
@@ -230,7 +259,7 @@ void debugSensors()
         debugln(tvoc);
 }
 
-// SETUP - WIFI
+// SETUP - Configuración de la conexión WiFi
 void setupWifi()
 {
         // Connecting to a Wi-Fi network
@@ -246,6 +275,8 @@ void setupWifi()
         client_id = String(WiFi.macAddress());
 }
 
+
+// SETUP - Función setup principal. Inicialización de los sensores y la comunicación
 void setup()
 {
         // Inicialización de la comunicación serie
@@ -292,6 +323,7 @@ void setup()
                 ;
 }
 
+// LOOP - Función loop principal. Lectura de los sensores y envío de mensajes
 void loop()
 {
         // Si se ha configurado el uso de MQTT

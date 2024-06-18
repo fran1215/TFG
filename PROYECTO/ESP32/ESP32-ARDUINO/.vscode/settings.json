@@ -1,8 +1,0 @@
-{
-        "CodeGPT.apiKey": "OpenAI",
-        "files.associations": {
-                "array": "cpp",
-                "string_view": "cpp",
-                "type_traits": "cpp"
-        }
-}

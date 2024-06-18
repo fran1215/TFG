@@ -1,12 +1,12 @@
-# Creating the container
+# Crear el contenedor
 
-On the directory with the file docker-compose.yml:
+Hacer cd hasta la carpeta MQTT/SERVER, donde se encuentra el archivo docker-compose.yml, y ejecutar el comando:
 
 ```
 docker compose up -d
 ```
 
-# User List
+# Lista de usuarios para referencia
 
 - esp32:testuma
 - raspberry:testuma
